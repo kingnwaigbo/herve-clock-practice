@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hervé's Clock Practice – Uhr lesen</title>
+    <!-- PWA Integration & Metadata -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <meta name="theme-color" content="#0f172a">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+        }
+        /* Smooth clock hand rotation transitions */
+        .hand-transition {
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+    <script>
+        // Register Service Worker for PWA functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('PWA Service Worker registered successfully:', reg.scope))
+                    .catch(err => console.error('Service Worker registration failed:', err));
+            });
+        }
+    </script>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen flex flex-col justify-between select-none">
+
+    <!-- Top Header -->
+    <header class="bg-white shadow-sm px-4 py-3 flex items-center justify-between sticky top-0 z-20">
+        <div class="flex items-center space-x-2">
+            <span class="text-2xl" role="img" aria-label="Clock">⏰</span>
+            <h1 class="text-lg md:text-xl font-bold text-slate-800 tracking-tight">Hervé's Clock Practice</h1>
+        </div>
+        <div class="flex items-center space-x-2">
+            <!-- Manual Time Button -->
+            <button id="openManualModalBtn" class="bg-slate-200 hover:bg-slate-300 text-slate-700 p-2.5 rounded-xl font-medium text-sm flex items-center space-x-1 transition shadow-sm active:scale-95" title="Uhrzeit eingeben">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <span class="hidden sm:inline">Uhrzeit eingeben</span>
+            </button>
+            <!-- Fullscreen Button -->
+            <button id="fullscreenBtn" class="bg-slate-200 hover:bg-slate-300 text-slate-700 p-2.5 rounded-xl font-medium text-sm flex items-center space-x-1 transition shadow-sm active:scale-95" title="Vollbild">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-4xl w-full mx-auto px-4 py-4 flex flex-col justify-center items-center space-y-4">
+
+        <!-- Difficulty Selector -->
+        <div class="w-full bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
+            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 text-center">Schwierigkeitsgrad</div>
+            <div class="grid grid-cols-5 gap-1.5 md:gap-2">
+                <button data-level="1" class="diff-btn py-2 px-1 text-xs md:text-sm font-bold rounded-xl border border-slate-200 transition active:scale-95 text-center bg-slate-50 hover:bg-slate-100 text-slate-700">
+                    <span class="block text-base font-extrabold">1</span>
+                    <span class="text-[10px] md:text-xs block truncate">Volle Std.</span>
+                </button>
+                <button data-level="2" class="diff-btn py-2 px-1 text-xs md:text-sm font-bold rounded-xl border border-slate-200 transition active:scale-95 text-center bg-slate-50 hover:bg-slate-100 text-slate-700">
+                    <span class="block text-base font-extrabold">2</span>
+                    <span class="text-[10px] md:text-xs block truncate">Halbe Std.</span>
+                </button>
+                <button data-level="3" class="diff-btn py-2 px-1 text-xs md:text-sm font-bold rounded-xl border border-slate-200 transition active:scale-95 text-center bg-slate-50 hover:bg-slate-100 text-slate-700">
+                    <span class="block text-base font-extrabold">3</span>
+                    <span class="text-[10px] md:text-xs block truncate">Viertelstd.</span>
+                </button>
+                <button data-level="4" class="diff-btn py-2 px-1 text-xs md:text-sm font-bold rounded-xl border border-slate-200 transition active:scale-95 text-center bg-slate-50 hover:bg-slate-100 text-slate-700">
+                    <span class="block text-base font-extrabold">4</span>
+                    <span class="text-[10px] md:text-xs block truncate">5 Min.</span>
+                </button>
+                <button data-level="5" class="diff-btn py-2 px-1 text-xs md:text-sm font-bold rounded-xl border border-slate-200 transition active:scale-95 text-center bg-slate-50 hover:bg-slate-100 text-slate-700">
+                    <span class="block text-base font-extrabold">5</span>
+                    <span class="text-[10px] md:text-xs block truncate">Alle Min.</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Clock Container -->
+        <div class="relative w-full max-w-[380px] sm:max-w-[420px] md:max-w-[460px] aspect-square flex items-center justify-center p-2">
+            <svg id="clockSvg" viewBox="0 0 400 400" class="w-full h-full drop-shadow-xl select-none">
+                <!-- Clock face background -->
+                <circle cx="200" cy="200" r="192" fill="#0f172a" opacity="0.1" />
+                <circle cx="200" cy="200" r="188" fill="#ffffff" stroke="#0f172a" stroke-width="7" />
+                <circle cx="200" cy="200" r="176" fill="#ffffff" stroke="#e2e8f0" stroke-width="2" />
+
+                <!-- Minute Ticks (60 ticks, longer every 5 min) -->
+                <g id="minuteTicks"></g>
+
+                <!-- Minute Helper Numbers (05, 10, ... 60) -->
+                <g id="minuteHelpers" style="display: none;"></g>
+
+                <!-- Hour Numbers (1-12) -->
+                <g id="hourNumbers"></g>
+
+                <!-- Hour Hand (Short, thick red) -->
+                <g id="hourHandGroup" class="hand-transition" transform="rotate(0 200 200)">
+                    <line x1="200" y1="200" x2="200" y2="125" stroke="#dc2626" stroke-width="12" stroke-linecap="round" />
+                    <circle cx="200" cy="125" r="6" fill="#dc2626" />
+                </g>
+
+                <!-- Minute Hand (Long, blue) -->
+                <g id="minuteHandGroup" class="hand-transition" transform="rotate(0 200 200)">
+                    <line x1="200" y1="200" x2="200" y2="78" stroke="#2563eb" stroke-width="7" stroke-linecap="round" />
+                    <circle cx="200" cy="78" r="4" fill="#2563eb" />
+                </g>
+
+                <!-- Center Pivot -->
+                <circle cx="200" cy="200" r="12" fill="#0f172a" />
+                <circle cx="200" cy="200" r="5" fill="#ffffff" />
+            </svg>
+        </div>
+
+        <!-- Answer Reveal Box (Hidden by default) -->
+        <div id="answerContainer" class="hidden w-full bg-amber-50 border-2 border-amber-300 p-4 rounded-2xl shadow-sm text-center transition-all">
+            <div class="text-xs font-bold text-amber-800 uppercase tracking-wider mb-1">Richtige Antwort</div>
+            <div id="digitalAnswerText" class="text-3xl md:text-4xl font-black text-amber-900 tracking-tight mb-1">03:45</div>
+            <div id="germanAnswerText" class="text-xl md:text-2xl font-bold text-amber-700 italic">Viertel vor vier</div>
+        </div>
+
+        <!-- Primary Action Buttons -->
+        <div class="w-full grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button id="randomTimeBtn" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold py-4 px-6 rounded-2xl shadow-md text-lg flex items-center justify-center space-x-2 transition">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Neue Uhrzeit</span>
+            </button>
+            <button id="answerBtn" class="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold py-4 px-6 rounded-2xl shadow-md text-lg flex items-center justify-center space-x-2 transition">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <span>Antwort anzeigen</span>
+            </button>
+        </div>
+
+        <!-- Secondary Controls & Next Time -->
+        <div class="w-full flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200">
+            <button id="nextTimeBtn" class="bg-slate-200 hover:bg-slate-300 active:scale-95 text-slate-700 font-semibold py-2.5 px-4 rounded-xl text-sm transition flex items-center space-x-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+                <span>Nächste Uhrzeit</span>
+            </button>
+
+            <div class="flex items-center space-x-2">
+                <button id="toggleNumbersBtn" class="bg-slate-200 hover:bg-slate-300 active:scale-95 text-slate-700 font-semibold py-2.5 px-3 rounded-xl text-xs md:text-sm transition">
+                    Zahlen: An
+                </button>
+                <button id="toggleHelpersBtn" class="bg-slate-200 hover:bg-slate-300 active:scale-95 text-slate-700 font-semibold py-2.5 px-3 rounded-xl text-xs md:text-sm transition">
+                    Min. Zahlen: Aus
+                </button>
+                <button id="toggleFormatBtn" class="bg-slate-200 hover:bg-slate-300 active:scale-95 text-slate-700 font-semibold py-2.5 px-3 rounded-xl text-xs md:text-sm transition">
+                    12h
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-3 text-xs text-slate-500 font-medium">
+        Hervé's Clock Practice • Offline Ready 📱💻
+    </footer>
+
+    <!-- Manual Time Input Modal -->
+    <div id="manualModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-slate-800">Uhrzeit manuell einstellen</h3>
+                <button id="closeManualModalBtn" class="text-slate-400 hover:text-slate-600 p-1 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Stunde (1-12)</label>
+                    <select id="manualHourSelect" class="w-full bg-slate-100 border border-slate-300 rounded-xl p-3 font-bold text-slate-800 text-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Minute (0-59)</label>
+                    <select id="manualMinuteSelect" class="w-full bg-slate-100 border border-slate-300 rounded-xl p-3 font-bold text-slate-800 text-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex space-x-2 pt-2">
+                <button id="applyManualTimeBtn" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow transition active:scale-95">
+                    Anwenden
+                </button>
+                <button id="cancelManualModalBtn" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-3 px-4 rounded-xl transition active:scale-95">
+                    Abbrechen
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application JavaScript -->
+    <script>
+        // German number words dictionaries
+        const hourWords = {
+            1: "eins", 2: "zwei", 3: "drei", 4: "vier", 5: "fünf", 6: "sechs",
+            7: "sieben", 8: "acht", 9: "neun", 10: "zehn", 11: "elf", 12: "zwölf"
+        };
+
+        const minuteWords = {
+            1: "eins", 2: "zwei", 3: "drei", 4: "vier", 5: "fünf", 6: "sechs", 7: "sieben", 8: "acht", 9: "neun", 10: "zehn",
+            11: "elf", 12: "zwölf", 13: "dreizehn", 14: "vierzehn", 15: "fünfzehn", 16: "sechzehn", 17: "siebzehn", 18: "achtzehn", 19: "neunzehn", 20: "zwanzig",
+            21: "einundzwanzig", 22: "zweiundzwanzig", 23: "dreiundzwanzig", 24: "vierundzwanzig", 25: "fünfundzwanzig", 26: "sechsundzwanzig", 27: "siebenundzwanzig", 28: "achtundzwanzig", 29: "neunundzwanzig", 30: "dreißig",
+            31: "einunddreißig", 32: "zweiunddreißig", 33: "dreiunddreißig", 34: "vierunddreißig", 35: "fünfunddreißig", 36: "sechsunddreißig", 37: "siebenunddreißig", 38: "achtunddreißig", 39: "neununddreißig", 40: "vierzig",
+            41: "einundvierzig", 42: "zweiundvierzig", 43: "dreiundvierzig", 44: "vierundvierzig", 45: "fünfundvierzig", 46: "sechsundvierzig", 47: "siebenundvierzig", 48: "achtundvierzig", 49: "neunundvierzig", 50: "fünfzig",
+            51: "einundfünfzig", 52: "zweiundfünfzig", 53: "dreiundfünfzig", 54: "vierundfünfzig", 55: "fünfundfünfzig", 56: "sechsundfünfzig", 57: "siebenundfünfzig", 58: "achtundfünfzig", 59: "neunundfünfzig"
+        };
+
+        // Correct German natural expressions generator
+        function getGermanTimeExpression(hours, minutes) {
+            let h12 = hours % 12;
+            if (h12 === 0) h12 = 12;
+            let nextH12 = (h12 % 12) + 1;
+
+            if (minutes === 0) {
+                let hWord = (h12 === 1) ? "ein" : hourWords[h12];
+                return `${hWord} Uhr`;
+            } else if (minutes === 15) {
+                return `Viertel nach ${hourWords[h12]}`;
+            } else if (minutes === 30) {
+                return `halb ${hourWords[nextH12]}`;
+            } else if (minutes === 45) {
+                return `Viertel vor ${hourWords[nextH12]}`;
+            } else if (minutes === 5) {
+                return `fünf nach ${hourWords[h12]}`;
+            } else if (minutes === 10) {
+                return `zehn nach ${hourWords[h12]}`;
+            } else if (minutes === 20) {
+                return `zwanzig nach ${hourWords[h12]}`;
+            } else if (minutes === 25) {
+                return `fünf vor halb ${hourWords[nextH12]}`;
+            } else if (minutes === 35) {
+                return `fünf nach halb ${hourWords[nextH12]}`;
+            } else if (minutes === 40) {
+                return `zwanzig vor ${hourWords[nextH12]}`;
+            } else if (minutes === 50) {
+                return `zehn vor ${hourWords[nextH12]}`;
+            } else if (minutes === 55) {
+                return `fünf vor ${hourWords[nextH12]}`;
+            } else {
+                let hWord = (h12 === 1) ? "ein" : hourWords[h12];
+                return `${hWord} Uhr ${minuteWords[minutes]}`;
+            }
+        }
+
+        // State loaded from localStorage or defaults
+        let difficulty = parseInt(localStorage.getItem('herve_clock_diff')) || 3;
+        let showNumbers = localStorage.getItem('herve_clock_show_nums') !== 'false';
+        let showHelpers = localStorage.getItem('herve_clock_show_helpers') === 'true';
+        let is24HourFormat = localStorage.getItem('herve_clock_24h') === 'true';
+
+        let currentTime = { hours: 3, minutes: 45, isPM: false };
+        let lastTime = { hours: -1, minutes: -1 };
+        let answerRevealed = false;
+
+        // Initialize clock face SVG elements
+        function initClockFace() {
+            const minuteTicksGroup = document.getElementById('minuteTicks');
+            const hourNumbersGroup = document.getElementById('hourNumbers');
+            const minuteHelpersGroup = document.getElementById('minuteHelpers');
+
+            let ticksHtml = '';
+            for (let i = 0; i < 60; i++) {
+                const angle = i * 6;
+                const isMajor = (i % 5 === 0);
+                const strokeWidth = isMajor ? 3 : 1.5;
+                const outerR = 176;
+                const innerR = isMajor ? 160 : 167;
+                
+                const rad = (angle - 90) * (Math.PI / 180);
+                const x1 = 200 + outerR * Math.cos(rad);
+                const y1 = 200 + outerR * Math.sin(rad);
+                const x2 = 200 + innerR * Math.cos(rad);
+                const y2 = 200 + innerR * Math.sin(rad);
+
+                ticksHtml += `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke="${isMajor ? '#1e293b' : '#94a3b8'}" stroke-width="${strokeWidth}" stroke-linecap="round" />`;
+            }
+            minuteTicksGroup.innerHTML = ticksHtml;
+
+            let numbersHtml = '';
+            for (let h = 1; h <= 12; h++) {
+                const angle = h * 30;
+                const rad = (angle - 90) * (Math.PI / 180);
+                const r = 134; 
+                const x = 200 + r * Math.cos(rad);
+                const y = 200 + r * Math.sin(rad);
+                numbersHtml += `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" dominant-baseline="central" text-anchor="middle" font-size="26" font-weight="800" fill="#0f172a">${h}</text>`;
+            }
+            hourNumbersGroup.innerHTML = numbersHtml;
+
+            let helpersHtml = '';
+            for (let i = 1; i <= 12; i++) {
+                const minuteVal = i * 5;
+                const angle = minuteVal * 6;
+                const rad = (angle - 90) * (Math.PI / 180);
+                const r = 98; 
+                const x = 200 + r * Math.cos(rad);
+                const y = 200 + r * Math.sin(rad);
+                const label = minuteVal === 60 ? '60' : (minuteVal < 10 ? '0' + minuteVal : minuteVal);
+                helpersHtml += `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" dominant-baseline="central" text-anchor="middle" font-size="13" font-weight="700" fill="#64748b">${label}</text>`;
+            }
+            minuteHelpersGroup.innerHTML = helpersHtml;
+
+            // Populate manual modal select dropdowns
+            const hourSelect = document.getElementById('manualHourSelect');
+            let hOpts = '';
+            for (let h = 1; h <= 12; h++) {
+                hOpts += `<option value="${h}">${h} Uhr</option>`;
+            }
+            hourSelect.innerHTML = hOpts;
+
+            const minSelect = document.getElementById('manualMinuteSelect');
+            let mOpts = '';
+            for (let m = 0; m < 60; m++) {
+                let mStr = m < 10 ? '0' + m : m;
+                mOpts += `<option value="${m}">${mStr} Min</option>`;
+            }
+            minSelect.innerHTML = mOpts;
+
+            updateUIPreferences();
+        }
+
+        function updateUIPreferences() {
+            document.querySelectorAll('.diff-btn').forEach(btn => {
+                const lvl = parseInt(btn.getAttribute('data-level'));
+                if (lvl === difficulty) {
+                    btn.classList.add('bg-emerald-600', 'text-white', 'border-emerald-600', 'shadow');
+                    btn.classList.remove('bg-slate-50', 'hover:bg-slate-100', 'text-slate-700');
+                } else {
+                    btn.classList.remove('bg-emerald-600', 'text-white', 'border-emerald-600', 'shadow');
+                    btn.classList.add('bg-slate-50', 'hover:bg-slate-100', 'text-slate-700');
+                }
+            });
+
+            document.getElementById('hourNumbers').style.display = showNumbers ? 'block' : 'none';
+            document.getElementById('toggleNumbersBtn').textContent = showNumbers ? 'Zahlen: An' : 'Zahlen: Aus';
+            document.getElementById('toggleNumbersBtn').classList.toggle('bg-slate-300', showNumbers);
+
+            document.getElementById('minuteHelpers').style.display = showHelpers ? 'block' : 'none';
+            document.getElementById('toggleHelpersBtn').textContent = showHelpers ? 'Min. Zahlen: An' : 'Min. Zahlen: Aus';
+            document.getElementById('toggleHelpersBtn').classList.toggle('bg-slate-300', showHelpers);
+
+            document.getElementById('toggleFormatBtn').textContent = is24HourFormat ? '24h' : '12h';
+            document.getElementById('toggleFormatBtn').classList.toggle('bg-slate-300', is24HourFormat);
+
+            localStorage.setItem('herve_clock_diff', difficulty);
+            localStorage.setItem('herve_clock_show_nums', showNumbers);
+            localStorage.setItem('herve_clock_show_helpers', showHelpers);
+            localStorage.setItem('herve_clock_24h', is24HourFormat);
+        }
+
+        // Random time generation adhering strictly to difficulty levels
+        function generateRandomTime() {
+            let newH, newM;
+            let attempts = 0;
+            do {
+                attempts++;
+                if (difficulty === 1) {
+                    newH = Math.floor(Math.random() * 12) + 1;
+                    newM = 0;
+                } else if (difficulty === 2) {
+                    newH = Math.floor(Math.random() * 12) + 1;
+                    newM = Math.random() < 0.5 ? 0 : 30;
+                } else if (difficulty === 3) {
+                    newH = Math.floor(Math.random() * 12) + 1;
+                    const quarters = [0, 15, 30, 45];
+                    newM = quarters[Math.floor(Math.random() * quarters.length)];
+                } else if (difficulty === 4) {
+                    newH = Math.floor(Math.random() * 12) + 1;
+                    newM = Math.floor(Math.random() * 12) * 5;
+                } else {
+                    newH = Math.floor(Math.random() * 12) + 1;
+                    newM = Math.floor(Math.random() * 60);
+                }
+                if (attempts > 50 || (newH !== lastTime.hours || newM !== lastTime.minutes)) {
+                    break;
+                }
+            } while (true);
+
+            lastTime = { hours: newH, minutes: newM };
+            currentTime.hours = newH;
+            currentTime.minutes = newM;
+            currentTime.isPM = Math.random() < 0.5;
+
+            updateClockDisplay();
+            hideAnswer();
+        }
+
+        function updateClockDisplay() {
+            const h = currentTime.hours;
+            const m = currentTime.minutes;
+
+            const minuteAngle = m * 6;
+            const hourAngle = (h % 12) * 30 + m * 0.5;
+
+            document.getElementById('minuteHandGroup').setAttribute('transform', `rotate(${minuteAngle} 200 200)`);
+            document.getElementById('hourHandGroup').setAttribute('transform', `rotate(${hourAngle} 200 200)`);
+        }
+
+        function toggleAnswer() {
+            answerRevealed = !answerRevealed;
+            const answerContainer = document.getElementById('answerContainer');
+            const answerBtn = document.getElementById('answerBtn');
+
+            if (answerRevealed) {
+                answerContainer.classList.remove('hidden');
+                answerBtn.textContent = 'Antwort verbergen';
+                answerBtn.classList.replace('bg-amber-600', 'bg-slate-600');
+                answerBtn.classList.replace('hover:bg-amber-700', 'hover:bg-slate-700');
+                
+                let displayH = currentTime.hours;
+                if (is24HourFormat && currentTime.isPM && displayH !== 12) {
+                    displayH += 12;
+                } else if (is24HourFormat && !currentTime.isPM && displayH === 12) {
+                    displayH = 0;
+                }
+                const mStr = currentTime.minutes < 10 ? '0' + currentTime.minutes : currentTime.minutes;
+                const digitalStr = `${displayH}:${mStr}`;
+                const germanStr = getGermanTimeExpression(currentTime.hours, currentTime.minutes);
+
+                document.getElementById('digitalAnswerText').textContent = digitalStr;
+                document.getElementById('germanAnswerText').textContent = germanStr;
+            } else {
+                hideAnswer();
+            }
+        }
+
+        function hideAnswer() {
+            answerRevealed = false;
+            const answerContainer = document.getElementById('answerContainer');
+            const answerBtn = document.getElementById('answerBtn');
+            answerContainer.classList.add('hidden');
+            answerBtn.textContent = 'Antwort anzeigen';
+            answerBtn.classList.replace('bg-slate-600', 'bg-amber-600');
+            answerBtn.classList.replace('hover:bg-slate-700', 'hover:bg-amber-700');
+        }
+
+        // Event listeners
+        window.addEventListener('DOMContentLoaded', () => {
+            initClockFace();
+            generateRandomTime();
+
+            document.querySelectorAll('.diff-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    difficulty = parseInt(btn.getAttribute('data-level'));
+                    updateUIPreferences();
+                    generateRandomTime();
+                });
+            });
+
+            document.getElementById('randomTimeBtn').addEventListener('click', generateRandomTime);
+            document.getElementById('nextTimeBtn').addEventListener('click', generateRandomTime);
+            document.getElementById('answerBtn').addEventListener('click', toggleAnswer);
+
+            document.getElementById('toggleNumbersBtn').addEventListener('click', () => {
+                showNumbers = !showNumbers;
+                updateUIPreferences();
+            });
+
+            document.getElementById('toggleHelpersBtn').addEventListener('click', () => {
+                showHelpers = !showHelpers;
+                updateUIPreferences();
+            });
+
+            document.getElementById('toggleFormatBtn').addEventListener('click', () => {
+                is24HourFormat = !is24HourFormat;
+                updateUIPreferences();
+                if (answerRevealed) {
+                    toggleAnswer();
+                    toggleAnswer();
+                }
+            });
+
+            document.getElementById('fullscreenBtn').addEventListener('click', () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.log('Fullscreen error:', err);
+                    });
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    }
+                }
+            });
+
+            const manualModal = document.getElementById('manualModal');
+            document.getElementById('openManualModalBtn').addEventListener('click', () => {
+                document.getElementById('manualHourSelect').value = currentTime.hours;
+                document.getElementById('manualMinuteSelect').value = currentTime.minutes;
+                manualModal.classList.remove('hidden');
+            });
+
+            document.getElementById('closeManualModalBtn').addEventListener('click', () => {
+                manualModal.classList.add('hidden');
+            });
+
+            document.getElementById('cancelManualModalBtn').addEventListener('click', () => {
+                manualModal.classList.add('hidden');
+            });
+
+            document.getElementById('applyManualTimeBtn').addEventListener('click', () => {
+                const h = parseInt(document.getElementById('manualHourSelect').value);
+                const m = parseInt(document.getElementById('manualMinuteSelect').value);
+                currentTime.hours = h;
+                currentTime.minutes = m;
+                updateClockDisplay();
+                hideAnswer();
+                manualModal.classList.add('hidden');
+            });
+        });
+    </script>
+</body>
+</html>
